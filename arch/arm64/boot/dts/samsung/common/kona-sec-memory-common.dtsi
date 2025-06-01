@@ -1,0 +1,79 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&reserved_memory {
+	/* CONFIG_SEC_DEBUG reserves 8MB */
+	sec_debug_region: sec_debug_region@0 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0x9F000000 0x0 0x00800000>;
+	};
+
+	sec_debug_rdx_bootdev: sec_debug_rdx_bootdev@0 {
+		no-ship;
+		reg = <0x1 0x00000000 0x0 0x0AD00000>;
+	};
+
+	ss_plog_region: ss_plog_region@9F800000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0x9F800000 0x0 0x00200000>;
+	};
+
+	ramoops@9FA00000 {
+		compatible = "ramoops";
+		reg = <0 0x9FA00000 0 0x100000>;
+		record-size = <0x40000>;
+		console-size = <0x40000>;
+		ftrace-size = <0x40000>;
+		pmsg-size = <0x40000>;
+	};
+
+	/*to reserve 2MB for TIMA */
+	tima_mem: tima_region@B0100000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0xB0100000 0 0x100000>;
+	};
+
+	/* Kaslr offset reserve */
+	kaslr_region: kaslr_region@A0001000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0x0 0xA0001000 0x0 0x1000>;
+	};	
+
+	camera_mem: camera_mem_region {
+		alloc-ranges = <0x1 0x80000000 0x0 0x80000000>;
+		alignment = <0x0 0x2000000>;
+		size = <0x0 0x40000000>;
+		ion,recyclable;
+		rbin_size = <0x32000000>;
+	};
+};
+
+&soc {
+	qcom,ion {
+		qcom,ion-heap@30 { /* CAMERA HEAP  */
+			reg = <30>;
+			memory-region = <&camera_mem>;
+			qcom,ion-heap-type = "RBIN";
+		};
+	};
+};
+
+&msm_imem {
+	upload_cause@66c {
+		compatible = "qcom,msm-imem-upload_cause";
+		reg = <0x66c 4>;
+	};
+};
