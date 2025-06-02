@@ -193,7 +193,7 @@ int msm_vidc_query_menu(void *instance, struct v4l2_querymenu *qmenu)
 		rc = -EINVAL;
 
 	s_vpr_h(inst->sid,
-		"%s: ctrl: %s: min %lld, max %lld, menu_skip_mask %llx, qmenu: id %d, index %d, %s\n",
+		"%s: ctrl: %s: min %d, max %d, menu_skip_mask %#x, qmenu: id %d, index %d, %s\n",
 		__func__, ctrl->name, ctrl->minimum, ctrl->maximum,
 		ctrl->menu_skip_mask, qmenu->id, qmenu->index,
 		rc ? "not supported" : "supported");
@@ -1447,7 +1447,7 @@ void *msm_vidc_open(int core_id, int session_type)
 		goto err_invalid_sid;
 	}
 
-	pr_debug(VIDC_DBG_TAG "Opening video instance: %pK, %d\n",
+	pr_info(VIDC_DBG_TAG "Opening video instance: %pK, %d\n",
 		"high", inst->sid, get_codec_name(inst->sid),
 		inst, session_type);
 	mutex_init(&inst->sync_lock);
@@ -1488,7 +1488,6 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->entropy_mode = HFI_H264_ENTROPY_CABAC;
 	inst->full_range = COLOR_RANGE_UNSPECIFIED;
 	inst->active = true;
-	inst->supported = true;
 
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
@@ -1544,10 +1543,8 @@ void *msm_vidc_open(int core_id, int session_type)
 
 	msm_comm_scale_clocks_and_bus(inst, 1);
 
-#ifdef CONFIG_DEBUG_FS
 	inst->debugfs_root =
 		msm_vidc_debugfs_init_inst(inst, core->debugfs_root);
-#endif
 
 	if (inst->session_type == MSM_VIDC_CVP) {
 		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
@@ -1720,7 +1717,7 @@ int msm_vidc_destroy(struct msm_vidc_inst *inst)
 
 	msm_vidc_debugfs_deinit_inst(inst);
 
-	pr_debug(VIDC_DBG_TAG "Closed video instance: %pK\n",
+	pr_info(VIDC_DBG_TAG "Closed video instance: %pK\n",
 			"high", inst->sid, get_codec_name(inst->sid),
 			inst);
 	put_sid(inst->sid);

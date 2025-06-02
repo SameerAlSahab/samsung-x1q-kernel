@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include "msm_cvp_internal.h"
@@ -142,6 +142,7 @@ void handle_session_unregister_buffer_done(enum hal_command_response cmd,
 			break;
 		}
 	}
+	mutex_unlock(&inst->cvpbufs.lock);
 	if (!found) {
 		s_vpr_e(inst->sid, "%s: client_data %x not found\n",
 			__func__, response->data.unregbuf.client_data);
@@ -163,11 +164,12 @@ void handle_session_unregister_buffer_done(enum hal_command_response cmd,
 	data[3] = cbuf->buf.offset;
 	v4l2_event_queue_fh(&inst->event_handler, &event);
 
+	mutex_lock(&inst->cvpbufs.lock);
 	list_del(&cbuf->list);
+	mutex_unlock(&inst->cvpbufs.lock);
 	kfree(cbuf);
 	cbuf = NULL;
 exit:
-	mutex_unlock(&inst->cvpbufs.lock);
 	s_vpr_l(inst->sid, "handled: SESSION_UNREGISTER_BUFFER_DONE\n");
 	put_inst(inst);
 }
@@ -231,14 +233,14 @@ static int msm_cvp_scale_clocks_and_bus(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
-	rc = msm_vidc_set_clocks(inst->core, inst->sid, false);
+	rc = msm_vidc_set_clocks(inst->core, inst->sid);
 	if (rc) {
 		s_vpr_e(inst->sid, "%s: failed set_clocks for inst %pK\n",
 			__func__, inst);
 		goto exit;
 	}
 
-	rc = msm_comm_vote_bus(inst, false);
+	rc = msm_comm_vote_bus(inst);
 	if (rc) {
 		s_vpr_e(inst->sid,
 			"%s: failed vote_bus for inst %pK\n", __func__, inst);
@@ -375,7 +377,6 @@ static int msm_cvp_register_buffer(struct msm_vidc_inst *inst,
 		goto exit;
 	}
 
-	mutex_lock(&inst->cvpbufs.lock);
 	memset(&vbuf, 0, sizeof(struct vidc_register_buffer));
 	vbuf.index = buf->index;
 	vbuf.type = get_hal_buftype(__func__, buf->type, inst->sid);
@@ -387,9 +388,9 @@ static int msm_cvp_register_buffer(struct msm_vidc_inst *inst,
 			(void *)inst->session, &vbuf);
 	if (rc) {
 		print_cvp_buffer(VIDC_ERR, "register failed", inst, cbuf);
-		mutex_unlock(&inst->cvpbufs.lock);
 		goto exit;
 	}
+	mutex_lock(&inst->cvpbufs.lock);
 	list_add_tail(&cbuf->list, &inst->cvpbufs.list);
 	mutex_unlock(&inst->cvpbufs.lock);
 	return rc;
@@ -430,9 +431,9 @@ static int msm_cvp_unregister_buffer(struct msm_vidc_inst *inst,
 			break;
 		}
 	}
+	mutex_unlock(&inst->cvpbufs.lock);
 	if (!found) {
 		print_client_buffer(VIDC_ERR, "invalid", inst, buf);
-		mutex_unlock(&inst->cvpbufs.lock);
 		return -EINVAL;
 	}
 
@@ -448,7 +449,6 @@ static int msm_cvp_unregister_buffer(struct msm_vidc_inst *inst,
 	if (rc)
 		print_cvp_buffer(VIDC_ERR, "unregister failed", inst, cbuf);
 
-	mutex_unlock(&inst->cvpbufs.lock);
 	return rc;
 }
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #define CREATE_TRACE_POINTS
@@ -30,6 +30,8 @@ int msm_vidc_err_recovery_disable = !1;
 #define DYNAMIC_BUF_OWNER(__binfo) ({ \
 	atomic_read(&__binfo->ref_count) >= 2 ? "video driver" : "firmware";\
 })
+
+struct log_cookie ctxt[MAX_SUPPORTED_INSTANCES];
 
 struct core_inst_pair {
 	struct msm_vidc_core *core;
@@ -162,7 +164,7 @@ static ssize_t debug_level_write(struct file *filp, const char __user *buf,
 
 	/* filter partial writes and invalid commands */
 	if (*ppos != 0 || count >= sizeof(kbuf) || count == 0) {
-		d_vpr_e("returning error - pos %lld, count %lu\n", *ppos, count);
+		d_vpr_e("returning error - pos %d, count %d\n", *ppos, count);
 		rc = -EINVAL;
 	}
 
@@ -271,9 +273,7 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 	dir = debugfs_create_dir(debugfs_name, parent);
 	if (IS_ERR_OR_NULL(dir)) {
 		dir = NULL;
-#ifdef CONFIG_DEBUG_FS
 		d_vpr_e("Failed to create debugfs for msm_vidc\n");
-#endif
 		goto failed_create_dir;
 	}
 	if (!debugfs_create_file("info", 0444, dir, core, &core_info_fops)) {
@@ -494,9 +494,7 @@ struct dentry *msm_vidc_debugfs_init_inst(struct msm_vidc_inst *inst,
 	dir = debugfs_create_dir(debugfs_name, parent);
 	if (IS_ERR_OR_NULL(dir)) {
 		dir = NULL;
-#ifdef CONFIG_DEBUG_FS
 		s_vpr_e(inst->sid, "Failed to create debugfs for msm_vidc\n");
-#endif
 		goto failed_create_dir;
 	}
 
@@ -613,16 +611,16 @@ int get_sid(u32 *sid, u32 session_type)
 {
 	int i;
 
-	for (i = 0; i < vidc_driver->num_ctxt; i++) {
-		if (!vidc_driver->ctxt[i].used) {
-			vidc_driver->ctxt[i].used = 1;
+	for (i = 0; i < MAX_SUPPORTED_INSTANCES; i++) {
+		if (!ctxt[i].used) {
+			ctxt[i].used = 1;
 			*sid = i+1;
 			update_log_ctxt(*sid, session_type, 0);
 			break;
 		}
 	}
 
-	return (i == vidc_driver->num_ctxt);
+	return (i == MAX_SUPPORTED_INSTANCES);
 }
 
 inline void update_log_ctxt(u32 sid, u32 session_type, u32 fourcc)
@@ -631,7 +629,7 @@ inline void update_log_ctxt(u32 sid, u32 session_type, u32 fourcc)
 	char type;
 	u32 s_type = 0;
 
-	if (!sid || sid > vidc_driver->num_ctxt) {
+	if (!sid || sid > MAX_SUPPORTED_INSTANCES) {
 		d_vpr_e("%s: invalid sid %#x\n",
 			__func__, sid);
 	}
@@ -687,10 +685,10 @@ inline void update_log_ctxt(u32 sid, u32 session_type, u32 fourcc)
 		break;
 	}
 
-	vidc_driver->ctxt[sid-1].session_type = s_type;
-	vidc_driver->ctxt[sid-1].codec_type = fourcc;
-	memcpy(&vidc_driver->ctxt[sid-1].name, codec, 4);
-	vidc_driver->ctxt[sid-1].name[4] = type;
-	vidc_driver->ctxt[sid-1].name[5] = '\0';
+	ctxt[sid-1].session_type = s_type;
+	ctxt[sid-1].codec_type = fourcc;
+	memcpy(&ctxt[sid-1].name, codec, 4);
+	ctxt[sid-1].name[4] = type;
+	ctxt[sid-1].name[5] = '\0';
 }
 
