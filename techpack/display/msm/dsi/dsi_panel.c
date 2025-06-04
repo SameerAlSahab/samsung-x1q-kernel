@@ -861,34 +861,38 @@ static int dsi_panel_wled_register(struct dsi_panel *panel,
 	return 0;
 }
 
-static int dsi_panel_update_backlight(struct dsi_panel *panel,
-	u32 bl_lvl)
+static int dsi_panel_update_backlight(struct dsi_panel *panel, u32 bl_lvl)
 {
-	int rc = 0;
-	struct mipi_dsi_device *dsi;
+    int rc = 0;
+    struct mipi_dsi_device *dsi;
 
-	if (!panel || (bl_lvl > 0xffff)) {
-		DSI_ERR("invalid params\n");
-		return -EINVAL;
-	}
+    if (!panel || (bl_lvl > 0xffff)) {
+        DSI_ERR("invalid params\n");
+        return -EINVAL;
+    }
 
-	dsi = &panel->mipi_device;
+    dsi = &panel->mipi_device;
 
-	if (panel->bl_config.bl_inverted_dbv)
-		bl_lvl = (((bl_lvl & 0xff) << 8) | (bl_lvl >> 8));
+    #ifdef CONFIG_ONEUI7_WORKAROUND
+    bl_lvl = get_fixed_brightness(bl_lvl);
+    #endif
+
+    if (panel->bl_config.bl_inverted_dbv)
+        bl_lvl = (((bl_lvl & 0xff) << 8) | (bl_lvl >> 8));
 
 #if defined(CONFIG_DISPLAY_SAMSUNG)
-	rc = ss_brightness_dcs(panel->panel_private, bl_lvl, BACKLIGHT_NORMAL);
-	if (rc < 0)
-		LCD_ERR("failed to update dcs backlight:%d\n", bl_lvl);
+    rc = ss_brightness_dcs(panel->panel_private, bl_lvl, BACKLIGHT_NORMAL);
+    if (rc < 0)
+        LCD_ERR("failed to update dcs backlight:%d\n", bl_lvl);
 #else
-	rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
-	if (rc < 0)
-		DSI_ERR("failed to update dcs backlight:%d\n", bl_lvl);
+    rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
+    if (rc < 0)
+        DSI_ERR("failed to update dcs backlight:%d\n", bl_lvl);
 #endif
 
-	return rc;
+    return rc;
 }
+
 
 static int dsi_panel_update_pwm_backlight(struct dsi_panel *panel,
 	u32 bl_lvl)
